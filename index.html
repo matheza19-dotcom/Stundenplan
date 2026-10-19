@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lehrer-Stundenplan</title>
+<style>
+:root{--bg:#eef1f5;--card:#fff;--ink:#1c2433;--mute:#667085;--line:#d5dbe5;--acc:#2f5bd8;--accbg:#e3eaff;--off:#fde4e1;--offink:#a3281c;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12161d;--card:#1b212b;--ink:#e8ecf3;--mute:#8e99ab;--line:#2b3340;--acc:#7a9bff;--accbg:#232e4d;--off:#3a1f1d;--offink:#ff9d92;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#12161d;--card:#1b212b;--ink:#e8ecf3;--mute:#8e99ab;--line:#2b3340;--acc:#7a9bff;--accbg:#232e4d;--off:#3a1f1d;--offink:#ff9d92;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:12px}
+h1{font-size:1.3rem;margin:4px 0 2px}
+.sub{color:var(--mute);font-size:.85rem;margin-bottom:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chips button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 14px;font:inherit;font-weight:600;cursor:pointer}
+.chips button[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:#fff}
+.nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.nav button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:8px 14px;font:inherit;cursor:pointer}
+.nav b{font-size:.95rem}
+.wrap{overflow-x:auto;max-width:100%}
+table{border-collapse:collapse;width:100%;min-width:480px;background:var(--card);border-radius:10px;overflow:hidden}
+th,td{border:1px solid var(--line);padding:6px 4px;text-align:center;vertical-align:middle}
+th{font-size:.8rem;background:var(--card);font-weight:600}
+th small{display:block;color:var(--mute);font-weight:400}
+th.heute{background:var(--accbg)}
+td.h{width:34px;color:var(--mute);font-weight:600;font-size:.85rem}
+td{height:56px;min-width:70px}
+.e{display:block;border-radius:6px;padding:3px 2px;background:var(--accbg);margin:1px 0}
+.e+.e{margin-top:3px}
+.e b{display:block;font-size:.95rem}
+.e span{font-size:.8rem;color:var(--mute)}
+.e.off{background:var(--off)}
+.e.off span{color:var(--offink);font-weight:600}
+.leer{padding:24px;color:var(--mute);text-align:center}
+.legend{font-size:.78rem;color:var(--mute);margin-top:10px}
+</style>
+</head>
+<body>
+<h1>Lehrer-Stundenplan</h1>
+<div class="sub" id="stand"></div>
+<div class="chips" id="chips"></div>
+<div class="wrap" id="grid"></div>
+<div class="legend">Jede Zelle zeigt Klasse und Fach. Ein „–“ heißt: Fach noch nicht bekannt, wird mit weiteren Plänen ergänzt.</div>
+
+<script>
+/* ===== DATEN: [Tag, Klasse, Stunde, Lehrer, Fach] — neue Fotos werden hier ergänzt; Fach darf leer sein ===== */
+const DATA=[
+["Mo","5E",6,"Kasp","D"],["Mo","8A",3,"Midu","E"],["Mo","8B",6,"Eglh",""],
+["Mo","8C",1,"Midu","E"],["Mo","8C",3,"Kras","It"],["Mo","8C",4,"Kras","It"],
+["Mo","8D",5,"Kasp","G"],["Mo","9C_1",2,"Eglh","CPr"],["Mo","9C_1",3,"Eglh","CPr"],
+["Mo","9D",6,"Kras",""],["Mo","9E",4,"Eglh","CPr"],["Mo","9E",5,"Eglh","CPr"],
+["Mo","10C",4,"Midu","E"],["Mo","11AB_1B_2CD",2,"Midu","Sps"],["Mo","11A",4,"Hiem","It"],
+["Mo","11B_2C",1,"Eglh","C"],["Mo","12G9",3,"Wägn","2WR1"],["Mo","12G9",4,"Wägn","2WR1"],
+["Mo","13G9",2,"Scra","3d3"],["Mo","13G9",3,"Scra","3d3"],["Mo","13G9",5,"Kras","3l1"],
+["Mo","13G9",9,"Gohl","3W_D"],["Mo","13G9",10,"Gohl","3W_D"],["Mo","Men",7,"Gohl","MITT"],
+["Mo","Einheit",6,"Midu","MITT"],["Mo","DK",5,"Wägn","M"],["Mo","DK",6,"Wägn","M"],
+["Di","5E",2,"Kasp","D"],["Di","8A",1,"Midu","E"],["Di","8A",8,"Eglh",""],["Di","8A",9,"Kasp",""],
+["Di","8B",5,"Kasp","D"],["Di","8B",6,"Kasp","D"],["Di","8C",9,"Weil",""],["Di","8D",6,"Eglh",""],
+["Di","8E",1,"Scal","C"],["Di","8E",2,"Urba","B"],["Di","9DE",8,"Wägn",""],["Di","9DE",9,"Wägn",""],
+["Di","10A",5,"Gohl","D"],["Di","10C",1,"Gohl","D"],["Di","10C",2,"Gohl","D"],["Di","10C",3,"Midu","E"],
+["Di","11AB_1B_2CD",8,"Midu","Sps"],["Di","11B_12",6,"Wägn","WR"],
+["Di","12G9",1,"Groh","2sps1"],["Di","12G9",2,"Groh","2sps1"],["Di","12G9",4,"Eglh","2b3"],["Di","12G9",5,"Eglh","2b3"],
+["Di","13G9",1,"Eglh","3b1"],["Di","13G9",2,"Eglh","3b1"],["Di","13G9",4,"Wägn","3WR1"],["Di","13G9",4,"Gohl","3GEO1"],
+["Di","OHNH",7,"Kasp","MITT"],
+["Di","DK",1,"Konk","DaZ1"],["Di","DK",2,"Konk","Eth"],["Di","DK",3,"Konk","DaZ1"],
+["Di","DK",4,"Konk","E"],["Di","DK",5,"Konk","DaZ1"],["Di","DK",6,"Konk","DaZ1"]
+];
+/* ===== ENDE DATEN ===== */
+
+const TAGE=["Mo","Di","Mi","Do","Fr"];
+/* Doppelte zusammenführen: gleiche Stunde bei gleichem Lehrer und gleicher Klasse nur einmal; ein bekanntes Fach ergänzt ein leeres */
+const M=new Map();
+DATA.forEach(r=>{const k=r.slice(0,4).join("|");const o=M.get(k);if(!o)M.set(k,[...r]);else if(!o[4]&&r[4])o[4]=r[4]});
+const ROWS=[...M.values()];
+const teachers=[...new Set(ROWS.map(r=>r[3]))].sort((a,b)=>a.localeCompare(b,"de"));
+let sel=teachers[0];
+try{const s=localStorage.getItem("lehrer");if(s&&teachers.includes(s))sel=s}catch(e){}
+const esc=t=>String(t).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+
+function render(){
+  const tage=TAGE.filter(t=>ROWS.some(r=>r[0]===t));
+  document.getElementById("stand").textContent=ROWS.length+" Stunden von "+teachers.length+" Lehrern · erfasst: "+tage.join(", ");
+  const chips=document.getElementById("chips");chips.innerHTML="";
+  teachers.forEach(t=>{const b=document.createElement("button");b.textContent=t;b.setAttribute("aria-pressed",t===sel);
+    b.onclick=()=>{sel=t;try{localStorage.setItem("lehrer",t)}catch(e){}render()};chips.appendChild(b)});
+  const rows=ROWS.filter(r=>r[3]===sel);
+  const maxH=Math.max(8,...rows.map(r=>r[2]));
+  let h="<table><thead><tr><th></th>"+TAGE.map(t=>"<th>"+t+"</th>").join("")+"</tr></thead><tbody>";
+  for(let s=1;s<=maxH;s++){
+    h+="<tr><td class='h'>"+s+"</td>";
+    TAGE.forEach(t=>{
+      const es=rows.filter(r=>r[0]===t&&r[2]===s);
+      h+="<td>"+es.map(r=>"<span class='e'><b>"+esc(r[1])+"</b><span>"+(r[4]?esc(r[4]):"–")+"</span></span>").join("")+"</td>";
+    });
+    h+="</tr>";
+  }
+  h+="</tbody></table>";
+  document.getElementById("grid").innerHTML=h;
+}
+render();
+</script>
+</body>
+</html>
