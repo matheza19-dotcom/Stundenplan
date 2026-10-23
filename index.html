@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lehrer-Stundenplan</title>
+<style>
+:root{--bg:#eef1f5;--card:#fff;--ink:#1c2433;--mute:#667085;--line:#d5dbe5;--acc:#2f5bd8;--accbg:#e3eaff;--off:#fde4e1;--offink:#a3281c;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12161d;--card:#1b212b;--ink:#e8ecf3;--mute:#8e99ab;--line:#2b3340;--acc:#7a9bff;--accbg:#232e4d;--off:#3a1f1d;--offink:#ff9d92;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#12161d;--card:#1b212b;--ink:#e8ecf3;--mute:#8e99ab;--line:#2b3340;--acc:#7a9bff;--accbg:#232e4d;--off:#3a1f1d;--offink:#ff9d92;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:12px}
+h1{font-size:1.3rem;margin:4px 0 2px}
+.sub{color:var(--mute);font-size:.85rem;margin-bottom:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chips button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 14px;font:inherit;font-weight:600;cursor:pointer}
+.chips button[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:#fff}
+.nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.nav button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:8px 14px;font:inherit;cursor:pointer}
+.nav b{font-size:.95rem}
+.wrap{overflow-x:auto;max-width:100%}
+table{border-collapse:collapse;width:100%;min-width:480px;background:var(--card);border-radius:10px;overflow:hidden}
+th,td{border:1px solid var(--line);padding:6px 4px;text-align:center;vertical-align:middle}
+th{font-size:.8rem;background:var(--card);font-weight:600}
+th small{display:block;color:var(--mute);font-weight:400}
+th.heute{background:var(--accbg)}
+td.h{width:34px;color:var(--mute);font-weight:600;font-size:.85rem}
+td{height:56px;min-width:70px}
+.e{display:block;border-radius:6px;padding:3px 2px;background:var(--accbg);margin:1px 0}
+.e+.e{margin-top:3px}
+.e b{display:block;font-size:.95rem}
+.e span{font-size:.8rem;color:var(--mute)}
+.e.off{background:var(--off)}
+.e.off span{color:var(--offink);font-weight:600}
+.inf{font-style:italic}
+.leer{padding:24px;color:var(--mute);text-align:center}
+.legend{font-size:.78rem;color:var(--mute);margin-top:10px}
+</style>
+</head>
+<body>
+<h1>Lehrer-Stundenplan</h1>
+<div class="sub" id="stand"></div>
+<div class="chips" id="chips"></div>
+<div class="wrap" id="grid"></div>
+<div class="legend">Jede Zelle zeigt Klasse und Fach. „–“ = Fach noch unbekannt, kursiv = Fach aus anderen Stunden dieses Lehrers in der Klasse abgeleitet, „?“ = Klasse unbekannt.</div>
+
+<script>
+/* ===== DATEN: je Plan [Tag, Stand(Datum des Plans), Zeilen "Klasse Stunde Lehrer Fach"] — "-" = Fach unbekannt, "?" = Klasse unbekannt ===== */
+const G=[
+["Mo","2026-10-19",["5E 6 Kasp D","8A 3 Midu E","8B 6 Eglh -","8C 1 Midu E","8C 3 Kras It","8C 4 Kras It","8D 5 Kasp G","9C_1 2 Eglh CPr","9C_1 3 Eglh CPr","9D 6 Kras -","9E 4 Eglh CPr","9E 5 Eglh CPr","10C 4 Midu E","11AB_1B_2CD 2 Midu Sps","11A 4 Hiem It","11B_2C 1 Eglh C","12G9 3-4 Wägn 2WR1","13G9 2-3 Scra 3d3","13G9 5 Kras 3l1","13G9 9-10 Gohl 3W_D","Men 7 Gohl MITT","Einheit 6 Midu MITT","DK 5-6 Wägn M"]],
+["Di","2026-10-20",["5E 2 Kasp D","6D 1 Alba D","6DF 2 Kula Eth","7B 1 Kula G","7B 5 Koch D","7B 6 Koch D","7D 1 Koch D","7D 2 Koch D","7D 3 Krok Mu","7E 1 Krok Mu","8A 1 Midu E","8A 6 Smik G","8A 7 Smik -","8A 8 Eglh -","8A 9 Kasp -","8BCD 3 Koch Eth","8BCD 4 Koch Eth","8B 5 Kasp D","8B 6 Kasp -","8C 9 Weil -","8D 6 Eglh -","8E 1 Scal C","8E 2 Urba B","9DE 8-9 Wägn -","9E 5 Alba G","10A 5 Gohl D","10B_12 2 Krok Mu","10C 1-2 Gohl D","10C 3 Midu E","11AB_1B_2CD 8 Midu Sps","11B_12 3-4 Alba D","11B_12 5 Kula G","11B_12 6 Wägn WR","12G9 1-2 Groh 2sps1","12G9 4-5 Eglh 2b3","13G9 1-2 Eglh 3b1","13G9 4 Wägn 3WR1","13G9 4 Gohl 3GEO1","OHNH 7 Kasp MITT","DK 1 Konk DaZ1","DK 2 Konk Eth","DK 3 Konk DaZ1","DK 4 Konk E","DK 5 Konk DaZ1","DK 6 Konk DaZ1","? 7 Krok -"]],
+["Mi","2026-10-21",["5F 5 Hein Mu","7B 2 Koch D","7C 1 Hein Mu","7D 1 Krok Mu","7D 6 Koch D","8A 1 Kasp D","8A 2 Kasp D","8B 1 Eglh B","8B 3 Kasp D","8B 4 Kasp D","8C 6 Midu -","8F 4 Hein Mu","8F 5 Kasp G","9B 1 Lang L","9C_12D 1 Koch F","9C_1 4 Eglh C","9E 5 Eglh C","10B_12C 2 Lang F","11AB_1B_2CD 3 Midu Sps","11AB_1B_2CD 3 Lang L","11A 6 Scra D","12G9 4 Lang 2f1","12G9 5 Wägn 2WR1","12G93G9 7-8 Hein 4voc1","13G9 2 Scra 3d3","13G9 3-4 Wägn 3WR1","13G9 3-4 Gohl 3GEO1","DK 6 Wägn M","? 8-9 Scra -","? 8-9 Gohl -"]],
+["Do","2026-10-22",["5ACFDK 1-2 Gril Swd","5C 3 Wägn M","5C 5 Scra E","5C 6 Gohl Geo","5D 1 Gohl D","5D 5 Gohl Geo","6ACD 3 Gril Swd","6BF 4 Gril Swd","6F 6 Sclu NuT","8A 5 Eglh B","8D 4 Eglh B","9C_1 2 Eglh C","9E 1 Eglh C","10A 2-3 Gohl D","10E 1-2 Lang L","11B_12 5 Wägn WR","12G9 1 Fürg 2e3","12G9 2 List 2d4","12G9 2 Wait 2ph1","12G9 3 List 2d4","12G9 4 Lang 2f1","13G9 2-3 Fürg 3SMW1T","OHNH 6 Gril MITT"]],
+["Fr","2026-10-23",["5A 3 Lotz D","5C 1 Krok Mu","5C 4-5 Wägn M","6A 1 Lotz G","6A 4 Hein Mu","6C 6 Hein Mu","7B 4 Koch D","7C 4 Lotz G","7C 5 Hein Mu","8BC 3 Smik F","8C 4 Smik G","8E 1 Hein Mu","9A 5 Smik G","9B 1-2 Lang L","9BD 1-2 Smik F","9C_12D 1-2 Koch F","9C_12 3 Krok Mu","9E 2 Hein Mu","10B_12C 3 Lang F","10E 6 Lotz G","11AB_1B_2CD 4 Lang L","11AC 5 Stoj Eth","11A 6 Stoj M","11B_12 6 Brau PuG","12G9 3 Wägn 2WR1","13G9 2 Lotz 3g2","13G9 6 Wägn 3WR1"]],
+["Mo","2026-10-26",["5C 1 Scra E","6C 5 Bürg D","7B 6 Wund E","8A 2 Smik G","8B 2 Wund It","9A 5 Wund E","10AB_1 4 Wund It","10B_12C 5 Lang F","10E 9 Lang L","11AB_1B_2CD 2 Midu Sps","11AB_1B_2CD 2 Lang L","11B_1 1 Wund It","11B_12D 7 Wita Ku","11B_12D 7 Krok Mu","12G9 1-2 Bürg 2d2","12G9 6 Lang 2f1","13G9 1 Hoen 3pha1","13G9 2-3 Scra 3d3","13G9 9-10 Hoen 3W_Ph","? 4 Lang -","? 5-6 Hoen -","? 7-8 Bürg -","? 9-10 Pred -"]]
+];
+/* ===== ENDE DATEN ===== */
+
+const TAGE=["Mo","Di","Mi","Do","Fr"];
+const ALL=[];
+G.forEach(([t,st,L])=>L.forEach(x=>{const[k,h,l,f]=x.split(" ");const[a,b]=h.split("-").map(Number);
+  for(let i=a;i<=(b||a);i++)ALL.push([t,k,i,l,f==="-"?"":f,st])}));
+/* Änderungen: pro Tag+Stunde+Lehrer gilt nur der neueste Plan, alles andere bleibt bestehen */
+const best=new Map();
+ALL.forEach(r=>{const k=r[0]+"|"+r[2]+"|"+r[3];if(!best.has(k)||r[5]>best.get(k))best.set(k,r[5])});
+const M=new Map();
+ALL.filter(r=>r[5]===best.get(r[0]+"|"+r[2]+"|"+r[3])).forEach(r=>{const k=r.slice(0,4).join("|");const o=M.get(k);if(!o)M.set(k,[...r]);else if(!o[4]&&r[4])o[4]=r[4]});
+const ROWS=[...M.values()];
+/* Fehlendes Fach ergänzen, wenn Lehrer in dieser Klasse sonst immer dasselbe Fach hat */
+const KF=new Map();
+ROWS.forEach(r=>{if(r[4]){const k=r[3]+"|"+r[1];(KF.get(k)||KF.set(k,new Set()).get(k)).add(r[4])}});
+ROWS.forEach(r=>{r[6]=false;if(!r[4]&&r[1]!=="?"){const f=KF.get(r[3]+"|"+r[1]);if(f&&f.size===1){r[4]=[...f][0];r[6]=true}}});
+const teachers=[...new Set(ROWS.map(r=>r[3]))].sort((a,b)=>a.localeCompare(b,"de"));
+let sel=teachers[0];
+try{const s=localStorage.getItem("lehrer");if(s&&teachers.includes(s))sel=s}catch(e){}
+const esc=t=>String(t).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+
+function render(){
+  document.getElementById("stand").textContent=ROWS.length+" Stunden von "+teachers.length+" Lehrern";
+  const chips=document.getElementById("chips");chips.innerHTML="";
+  teachers.forEach(t=>{const b=document.createElement("button");b.textContent=t;b.setAttribute("aria-pressed",t===sel);
+    b.onclick=()=>{sel=t;try{localStorage.setItem("lehrer",t)}catch(e){}render()};chips.appendChild(b)});
+  const rows=ROWS.filter(r=>r[3]===sel);
+  const maxH=Math.max(8,...rows.map(r=>r[2]));
+  let h="<table><thead><tr><th></th>"+TAGE.map(t=>"<th>"+t+"</th>").join("")+"</tr></thead><tbody>";
+  for(let s=1;s<=maxH;s++){
+    h+="<tr><td class='h'>"+s+"</td>";
+    TAGE.forEach(t=>{
+      const es=rows.filter(r=>r[0]===t&&r[2]===s);
+      h+="<td>"+es.map(r=>"<span class='e'><b>"+esc(r[1])+"</b><span"+(r[6]?" class='inf'":"")+">"+(r[4]?esc(r[4]):"–")+"</span></span>").join("")+"</td>";
+    });
+    h+="</tr>";
+  }
+  h+="</tbody></table>";
+  document.getElementById("grid").innerHTML=h;
+}
+render();
+</script>
+</body>
+</html>
